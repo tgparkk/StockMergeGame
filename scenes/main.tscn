@@ -1,0 +1,82 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/main.gd" id="1"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_floor"]
+size = Vector2(510, 4)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_left"]
+size = Vector2(4, 850)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_right"]
+size = Vector2(4, 850)
+
+[sub_resource type="LabelSettings" id="LabelSettings_score"]
+font_size = 26
+font_color = Color(1, 1, 1, 1)
+
+[sub_resource type="LabelSettings" id="LabelSettings_best"]
+font_size = 16
+font_color = Color(0.7, 0.7, 0.8, 1)
+
+[sub_resource type="LabelSettings" id="LabelSettings_msg"]
+font_size = 26
+font_color = Color(1, 1, 0.6, 1)
+
+[node name="Main" type="Node2D"]
+script = ExtResource("1")
+
+[node name="Walls" type="StaticBody2D" parent="."]
+
+[node name="Floor" type="CollisionShape2D" parent="Walls"]
+position = Vector2(270, 922)
+shape = SubResource("RectangleShape2D_floor")
+
+[node name="LeftWall" type="CollisionShape2D" parent="Walls"]
+position = Vector2(13, 500)
+shape = SubResource("RectangleShape2D_left")
+
+[node name="RightWall" type="CollisionShape2D" parent="Walls"]
+position = Vector2(527, 500)
+shape = SubResource("RectangleShape2D_right")
+
+[node name="DropGuide" type="Line2D" parent="."]
+width = 1.5
+default_color = Color(1, 1, 1, 0.2)
+visible = false
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="ScoreLabel" type="Label" parent="UI"]
+offset_left = 15.0
+offset_top = 8.0
+offset_right = 300.0
+offset_bottom = 45.0
+text = "💰 0"
+label_settings = SubResource("LabelSettings_score")
+
+[node name="BestLabel" type="Label" parent="UI"]
+offset_left = 15.0
+offset_top = 38.0
+offset_right = 200.0
+offset_bottom = 60.0
+text = ""
+label_settings = SubResource("LabelSettings_best")
+
+[node name="NextPreview" type="Node2D" parent="UI"]
+position = Vector2(490, 50)
+
+[node name="MessageLabel" type="Label" parent="UI"]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -150.0
+offset_top = -80.0
+offset_right = 150.0
+offset_bottom = 80.0
+horizontal_alignment = 1
+vertical_alignment = 1
+label_settings = SubResource("LabelSettings_msg")
