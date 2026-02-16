@@ -1,6 +1,9 @@
 # 메인 게임 로직
 extends Node2D
 
+enum State { TITLE, PLAYING, PAUSED, GAME_OVER, RECORDS }
+var state: State = State.TITLE
+
 var score: int = 0
 var best_score: int = 0
 var next_level: int = 0
@@ -34,6 +37,14 @@ var C_BOTTOM: float = 920.0
 var DROP_Y: float = 80.0
 var WALL_THICKNESS: float = 4.0
 
+# 통계
+var stats: Dictionary = {
+	"best_score": 0,
+	"games_played": 0,
+	"total_merges": 0,
+	"max_level": 0,
+}
+
 @onready var score_label: Label = $UI/ScoreLabel
 @onready var best_label: Label = $UI/BestLabel
 @onready var next_preview: Node2D = $UI/NextPreview
@@ -41,6 +52,10 @@ var WALL_THICKNESS: float = 4.0
 
 var ball_scene: PackedScene
 var ad_manager: Node = null
+
+# UI 버튼들
+var _buttons: Dictionary = {}
+var _title_anim_t: float = 0.0
 
 func _ready():
 	# AdMob 초기화
@@ -55,23 +70,22 @@ func _ready():
 	C_LEFT = 15.0
 	C_RIGHT = screen_w - 15.0
 	C_TOP = 120.0
-	C_BOTTOM = screen_h - 20.0
+	C_BOTTOM = screen_h - 90.0
 	DROP_Y = 70.0
 	pendulum_x = screen_w / 2.0
 	
-	# 벽 물리 업데이트
 	_setup_walls()
 	
 	ball_scene = _create_ball_scene()
 	next_preview.set_script(load("res://scripts/next_preview.gd"))
 	next_level = randi_range(0, StockData.MAX_DROP_LEVEL)
-	_load_best_score()
+	_load_stats()
+	best_score = stats.best_score
 	_update_ui()
 	_layout_ui()
-	queue_redraw()
+	_set_state(State.TITLE)
 
 func _setup_walls():
-	var walls = $Walls
 	var floor_col = $Walls/Floor
 	var left_col = $Walls/LeftWall
 	var right_col = $Walls/RightWall
@@ -93,18 +107,11 @@ func _setup_walls():
 	right_col.position = Vector2(C_RIGHT + WALL_THICKNESS / 2, C_TOP - 30 + wall_h / 2)
 
 func _layout_ui():
-	# 점수 (좌상단)
 	score_label.position = Vector2(C_LEFT, 8)
 	score_label.size = Vector2(300, 40)
-	
-	# 최고점수 (좌상단 아래)
 	best_label.position = Vector2(C_LEFT, 38)
 	best_label.size = Vector2(200, 30)
-	
-	# 다음 공 미리보기 (우상단)
 	next_preview.position = Vector2(C_RIGHT - 40, 50)
-	
-	# 가이드 라인
 	drop_guide.width = 1.5
 	drop_guide.default_color = Color(1, 1, 1, 0.2)
 
@@ -126,10 +133,171 @@ func _create_ball_scene() -> PackedScene:
 	scene.pack(body)
 	return scene
 
+# ── 상태 관리 ──
+
+func _set_state(new_state: State):
+	state = new_state
+	_clear_buttons()
+	
+	var playing_ui = state == State.PLAYING
+	score_label.visible = playing_ui
+	best_label.visible = playing_ui
+	next_preview.visible = playing_ui
+	drop_guide.visible = false
+	$UI/MessageLabel.visible = false
+	
+	match state:
+		State.TITLE:
+			get_tree().paused = false
+			_hide_gameplay()
+			_create_title_buttons()
+		State.PLAYING:
+			get_tree().paused = false
+			_show_gameplay()
+			_create_pause_button()
+		State.PAUSED:
+			get_tree().paused = true
+			_create_pause_menu_buttons()
+		State.GAME_OVER:
+			get_tree().paused = false
+			_create_game_over_buttons()
+		State.RECORDS:
+			get_tree().paused = false
+			_hide_gameplay()
+			_create_records_buttons()
+	
+	queue_redraw()
+
+func _hide_gameplay():
+	score_label.visible = false
+	best_label.visible = false
+	next_preview.visible = false
+	drop_guide.visible = false
+	for child in get_children():
+		if child is RigidBody2D:
+			child.visible = false
+
+func _show_gameplay():
+	score_label.visible = true
+	best_label.visible = true
+	next_preview.visible = true
+	for child in get_children():
+		if child is RigidBody2D:
+			child.visible = true
+
+# ── 버튼 생성 헬퍼 ──
+
+func _clear_buttons():
+	for key in _buttons:
+		if is_instance_valid(_buttons[key]):
+			_buttons[key].queue_free()
+	_buttons.clear()
+
+func _make_button(text: String, pos: Vector2, size: Vector2, callback: Callable, font_size: int = 24) -> Button:
+	var btn = Button.new()
+	btn.text = text
+	btn.position = pos
+	btn.size = size
+	btn.add_theme_font_size_override("font_size", font_size)
+	btn.add_theme_color_override("font_color", Color(1, 1, 1))
+	btn.add_theme_color_override("font_hover_color", Color(1, 1, 0.8))
+	btn.add_theme_color_override("font_pressed_color", Color(0.8, 0.8, 0.6))
+	
+	# 다크 테마 스타일
+	var normal_style = StyleBoxFlat.new()
+	normal_style.bg_color = Color(0.15, 0.16, 0.25)
+	normal_style.border_color = Color(0.4, 0.42, 0.55)
+	normal_style.set_border_width_all(2)
+	normal_style.set_corner_radius_all(12)
+	normal_style.set_content_margin_all(8)
+	btn.add_theme_stylebox_override("normal", normal_style)
+	
+	var hover_style = normal_style.duplicate()
+	hover_style.bg_color = Color(0.2, 0.22, 0.33)
+	btn.add_theme_stylebox_override("hover", hover_style)
+	
+	var pressed_style = normal_style.duplicate()
+	pressed_style.bg_color = Color(0.1, 0.11, 0.18)
+	btn.add_theme_stylebox_override("pressed", pressed_style)
+	
+	btn.pressed.connect(callback)
+	btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	$UI.add_child(btn)
+	return btn
+
+func _create_title_buttons():
+	var cx = screen_w / 2.0
+	var bw = 220.0
+	var bh = 56.0
+	var by = screen_h * 0.55
+	
+	_buttons["start"] = _make_button("🎮 게임 시작", Vector2(cx - bw/2, by), Vector2(bw, bh), _on_start_pressed, 26)
+	_buttons["records"] = _make_button("📊 기록", Vector2(cx - bw/2, by + 75), Vector2(bw, bh), _on_records_pressed, 26)
+
+func _create_pause_button():
+	var btn = _make_button("⏸", Vector2(screen_w - 60, 5), Vector2(50, 50), _on_pause_pressed, 22)
+	_buttons["pause"] = btn
+
+func _create_pause_menu_buttons():
+	var cx = screen_w / 2.0
+	var bw = 220.0
+	var bh = 54.0
+	var by = screen_h * 0.38
+	
+	_buttons["resume"] = _make_button("▶️ 계속하기", Vector2(cx - bw/2, by), Vector2(bw, bh), _on_resume_pressed, 24)
+	_buttons["restart_p"] = _make_button("🔄 다시하기", Vector2(cx - bw/2, by + 70), Vector2(bw, bh), _on_restart_pressed, 24)
+	_buttons["home_p"] = _make_button("🏠 메인으로", Vector2(cx - bw/2, by + 140), Vector2(bw, bh), _on_home_pressed, 24)
+
+func _create_game_over_buttons():
+	var cx = screen_w / 2.0
+	var bw = 220.0
+	var bh = 54.0
+	var by = screen_h * 0.58
+	
+	_buttons["restart_go"] = _make_button("🔄 다시하기", Vector2(cx - bw/2, by), Vector2(bw, bh), _on_restart_pressed, 24)
+	_buttons["home_go"] = _make_button("🏠 메인으로", Vector2(cx - bw/2, by + 70), Vector2(bw, bh), _on_home_pressed, 24)
+
+func _create_records_buttons():
+	var cx = screen_w / 2.0
+	var bw = 220.0
+	var bh = 54.0
+	_buttons["back"] = _make_button("🔙 돌아가기", Vector2(cx - bw/2, screen_h * 0.75), Vector2(bw, bh), _on_back_pressed, 24)
+
+# ── 버튼 콜백 ──
+
+func _on_start_pressed():
+	_restart()
+	_set_state(State.PLAYING)
+
+func _on_records_pressed():
+	_set_state(State.RECORDS)
+
+func _on_pause_pressed():
+	_set_state(State.PAUSED)
+
+func _on_resume_pressed():
+	_set_state(State.PLAYING)
+
+func _on_restart_pressed():
+	_restart()
+	_set_state(State.PLAYING)
+
+func _on_home_pressed():
+	# 공 정리
+	for child in get_children():
+		if child is RigidBody2D:
+			child.queue_free()
+	game_over = false
+	game_over_timer = 0.0
+	_set_state(State.TITLE)
+
+func _on_back_pressed():
+	_set_state(State.TITLE)
+
+# ── 입력 ──
+
 func _input(event):
-	if game_over:
-		if event is InputEventMouseButton and event.pressed:
-			_restart()
+	if state != State.PLAYING:
 		return
 	
 	if event is InputEventMouseButton and event.pressed and can_drop:
@@ -171,6 +339,11 @@ func merge_balls(ball_a, ball_b, pos: Vector2, new_level: int):
 	var combo_bonus = combo_count if combo_count > 1 else 1
 	var gained = data.score * combo_bonus
 	score += gained
+	
+	# 통계 추적
+	stats.total_merges += 1
+	if new_level > stats.max_level:
+		stats.max_level = new_level
 	
 	if combo_count > 1:
 		_show_combo(pos, combo_count, gained)
@@ -216,6 +389,13 @@ func _show_combo(pos: Vector2, combo: int, points: int):
 	tween.tween_callback(label.queue_free)
 
 func _process(delta):
+	_title_anim_t += delta
+	
+	if state != State.PLAYING:
+		if state == State.TITLE or state == State.RECORDS:
+			queue_redraw()
+		return
+	
 	if game_over:
 		return
 	
@@ -233,7 +413,6 @@ func _process(delta):
 		drop_timer += delta
 		inflate_amount = clamp(drop_timer / DROP_TIME_LIMIT, 0.0, 1.0)
 		
-		# 카운트다운 (사운드 비활성화 상태)
 		var tick_interval = 0.5 if inflate_amount < 0.5 else (0.25 if inflate_amount < 0.8 else 0.12)
 		var current_tick = int(drop_timer / tick_interval)
 		if current_tick != last_tick and drop_timer > 0.3:
@@ -292,12 +471,16 @@ func _game_over():
 	SFX.play_game_over(get_tree())
 	if ad_manager:
 		ad_manager.show_interstitial_on_game_over()
+	
+	# 통계 업데이트
+	stats.games_played += 1
 	if score > best_score:
 		best_score = score
-		_save_best_score()
-		_show_message("🏆 새 기록!\n시총: " + _format_score(score) + "\n\n탭하여 재시작")
-	else:
-		_show_message("Game Over!\n시총: " + _format_score(score) + "\n최고: " + _format_score(best_score) + "\n\n탭하여 재시작")
+	if score > stats.best_score:
+		stats.best_score = score
+	_save_stats()
+	
+	_set_state(State.GAME_OVER)
 
 func _restart():
 	score = 0
@@ -339,6 +522,25 @@ func _format_score(s: int) -> String:
 		return str(s / 1000) + "," + str(s % 1000).pad_zeros(3)
 	return str(s)
 
+# ── 통계 저장/로드 ──
+
+func _save_stats():
+	var file = FileAccess.open("user://stats.dat", FileAccess.WRITE)
+	if file:
+		file.store_var(stats)
+	# 하위 호환
+	_save_best_score()
+
+func _load_stats():
+	var file = FileAccess.open("user://stats.dat", FileAccess.READ)
+	if file:
+		var data = file.get_var()
+		if data is Dictionary:
+			for key in data:
+				stats[key] = data[key]
+	else:
+		_load_best_score()
+
 func _save_best_score():
 	var file = FileAccess.open("user://best_score.dat", FileAccess.WRITE)
 	if file:
@@ -348,12 +550,30 @@ func _load_best_score():
 	var file = FileAccess.open("user://best_score.dat", FileAccess.READ)
 	if file:
 		best_score = file.get_32()
+		stats.best_score = best_score
+
+# ── 드로우 ──
 
 func _draw():
-	# 배경
+	# 배경 (항상)
 	draw_rect(Rect2(0, 0, screen_w, screen_h), Color(0.06, 0.07, 0.10), true)
 	
-	# 컨테이너 배경 (약간 밝게)
+	match state:
+		State.TITLE:
+			_draw_title()
+		State.PLAYING:
+			_draw_gameplay()
+		State.PAUSED:
+			_draw_gameplay()
+			_draw_overlay("일시정지", "")
+		State.GAME_OVER:
+			_draw_gameplay()
+			_draw_game_over_panel()
+		State.RECORDS:
+			_draw_records()
+
+func _draw_gameplay():
+	# 컨테이너 배경
 	draw_rect(Rect2(C_LEFT, C_TOP - 40, C_RIGHT - C_LEFT, C_BOTTOM - C_TOP + 42), Color(0.10, 0.11, 0.16), true)
 	
 	# 컨테이너 벽
@@ -374,7 +594,7 @@ func _draw():
 		draw_rect(Rect2(0, 0, screen_w, screen_h), Color(1, 0, 0, va), true)
 	
 	# 타이머 바
-	if can_drop and not game_over:
+	if can_drop and not game_over and state == State.PLAYING:
 		var bar_y = C_TOP - 45.0
 		var bar_w = C_RIGHT - C_LEFT
 		var remain_w = bar_w * (1.0 - inflate_amount)
@@ -382,7 +602,6 @@ func _draw():
 		draw_rect(Rect2(C_LEFT, bar_y, bar_w, 5), Color(0.15, 0.15, 0.2), true)
 		draw_rect(Rect2(C_LEFT, bar_y, remain_w, 5), bar_color, true)
 		
-		# 현재 공 위치에 미리보기
 		var pd = StockData.get_level(next_level)
 		var pr = pd.radius * (1.0 + inflate_amount * 0.5)
 		draw_circle(Vector2(pendulum_x, DROP_Y), pr, Color(pd.color.r, pd.color.g, pd.color.b, 0.35))
@@ -393,3 +612,134 @@ func _draw():
 	# "다음" 텍스트
 	var font = ThemeDB.fallback_font
 	draw_string(font, Vector2(C_RIGHT - 70, 25), "다음", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.6, 0.6, 0.7))
+
+func _draw_title():
+	var font = ThemeDB.fallback_font
+	var cx = screen_w / 2.0
+	
+	# 장식: 미묘한 그라데이션 패널
+	var panel_y = screen_h * 0.15
+	var panel_h = 200.0
+	draw_rect(Rect2(40, panel_y, screen_w - 80, panel_h), Color(0.1, 0.1, 0.18, 0.7), true)
+	# 패널 테두리
+	draw_rect(Rect2(40, panel_y, screen_w - 80, panel_h), Color(0.35, 0.38, 0.55, 0.5), false, 2.0)
+	
+	# 타이틀
+	var title = "시총 키우기"
+	var title_size = 40
+	var ts = font.get_string_size(title, HORIZONTAL_ALIGNMENT_CENTER, -1, title_size)
+	var title_y = panel_y + 80
+	# 글로우 효과
+	var glow_alpha = 0.15 + sin(_title_anim_t * 2.0) * 0.1
+	draw_string(font, Vector2(cx - ts.x / 2 + 2, title_y + 2), title, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size, Color(0.3, 0.4, 1.0, glow_alpha))
+	draw_string(font, Vector2(cx - ts.x / 2, title_y), title, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size, Color(1, 1, 0.85))
+	
+	# 서브타이틀
+	var sub = "주식 머지 게임"
+	var sub_size = 20
+	var ss = font.get_string_size(sub, HORIZONTAL_ALIGNMENT_CENTER, -1, sub_size)
+	draw_string(font, Vector2(cx - ss.x / 2, title_y + 45), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, sub_size, Color(0.65, 0.68, 0.8))
+	
+	# 장식 아이콘들
+	var icons = ["🌱", "📈", "🚀", "🦄", "🔔", "👑"]
+	var icon_y = screen_h * 0.42
+	var spacing = (screen_w - 80) / icons.size()
+	for i in range(icons.size()):
+		var ix = 40 + spacing * (i + 0.5)
+		var bounce = sin(_title_anim_t * 1.5 + i * 0.8) * 8
+		draw_string(font, Vector2(ix - 10, icon_y + bounce), icons[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 22)
+
+func _draw_overlay(title: String, _detail: String):
+	# 반투명 오버레이
+	draw_rect(Rect2(0, 0, screen_w, screen_h), Color(0, 0, 0, 0.65), true)
+	
+	var font = ThemeDB.fallback_font
+	var cx = screen_w / 2.0
+	
+	# 타이틀
+	var ts = font.get_string_size(title, HORIZONTAL_ALIGNMENT_CENTER, -1, 32)
+	draw_string(font, Vector2(cx - ts.x / 2, screen_h * 0.28), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 32, Color(1, 1, 1))
+
+func _draw_game_over_panel():
+	# 반투명 오버레이
+	draw_rect(Rect2(0, 0, screen_w, screen_h), Color(0, 0, 0, 0.7), true)
+	
+	var font = ThemeDB.fallback_font
+	var cx = screen_w / 2.0
+	
+	# 패널
+	var pw = 320.0
+	var ph = 260.0
+	var px = cx - pw / 2
+	var py = screen_h * 0.22
+	draw_rect(Rect2(px, py, pw, ph), Color(0.1, 0.11, 0.18), true)
+	draw_rect(Rect2(px, py, pw, ph), Color(0.4, 0.42, 0.55), false, 2.0)
+	
+	# 새 기록?
+	var is_new_best = score >= best_score and score > 0
+	var header = "🏆 새 기록!" if is_new_best else "Game Over"
+	var header_color = Color(1, 1, 0.4) if is_new_best else Color(1, 0.6, 0.6)
+	var hs = font.get_string_size(header, HORIZONTAL_ALIGNMENT_CENTER, -1, 28)
+	draw_string(font, Vector2(cx - hs.x / 2, py + 45), header, HORIZONTAL_ALIGNMENT_LEFT, -1, 28, header_color)
+	
+	# 점수
+	var score_text = "시총: " + _format_score(score)
+	var sc_size = 32
+	var scs = font.get_string_size(score_text, HORIZONTAL_ALIGNMENT_CENTER, -1, sc_size)
+	draw_string(font, Vector2(cx - scs.x / 2, py + 100), score_text, HORIZONTAL_ALIGNMENT_LEFT, -1, sc_size, Color(1, 1, 1))
+	
+	# 최고점수
+	var best_text = "최고: " + _format_score(best_score)
+	var bs = font.get_string_size(best_text, HORIZONTAL_ALIGNMENT_CENTER, -1, 20)
+	draw_string(font, Vector2(cx - bs.x / 2, py + 140), best_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(0.7, 0.7, 0.8))
+	
+	# 게임 수
+	var games_text = "총 " + str(stats.games_played) + "게임 플레이"
+	var gs = font.get_string_size(games_text, HORIZONTAL_ALIGNMENT_CENTER, -1, 16)
+	draw_string(font, Vector2(cx - gs.x / 2, py + 170), games_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.55, 0.55, 0.65))
+
+func _draw_records():
+	var font = ThemeDB.fallback_font
+	var cx = screen_w / 2.0
+	
+	# 타이틀
+	var title = "📊 기록"
+	var ts = font.get_string_size(title, HORIZONTAL_ALIGNMENT_CENTER, -1, 32)
+	draw_string(font, Vector2(cx - ts.x / 2, screen_h * 0.12), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 32, Color(1, 1, 1))
+	
+	# 패널
+	var pw = 380.0
+	var ph = 320.0
+	var px = cx - pw / 2
+	var py = screen_h * 0.18
+	draw_rect(Rect2(px, py, pw, ph), Color(0.1, 0.11, 0.18, 0.9), true)
+	draw_rect(Rect2(px, py, pw, ph), Color(0.35, 0.38, 0.55, 0.5), false, 2.0)
+	
+	var items = [
+		["🏆 최고 점수", _format_score(stats.best_score)],
+		["🎮 총 게임 수", str(stats.games_played) + "회"],
+		["🔄 총 합체 수", str(stats.total_merges) + "회"],
+		["⭐ 최고 등급", _get_level_name(stats.max_level)],
+	]
+	
+	var iy = py + 55
+	for item in items:
+		var label_text: String = item[0]
+		var value_text: String = item[1]
+		
+		# 라벨
+		draw_string(font, Vector2(px + 30, iy), label_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(0.75, 0.78, 0.9))
+		# 값
+		var vs = font.get_string_size(value_text, HORIZONTAL_ALIGNMENT_RIGHT, -1, 24)
+		draw_string(font, Vector2(px + pw - 30 - vs.x, iy), value_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color(1, 1, 0.85))
+		
+		# 구분선
+		iy += 15
+		draw_line(Vector2(px + 20, iy), Vector2(px + pw - 20, iy), Color(0.25, 0.26, 0.35), 1.0)
+		iy += 50
+
+func _get_level_name(lvl: int) -> String:
+	if lvl <= 0:
+		return "-"
+	var data = StockData.get_level(lvl)
+	return data.emoji + " " + data.name

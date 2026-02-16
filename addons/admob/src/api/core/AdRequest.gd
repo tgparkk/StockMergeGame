@@ -23,7 +23,7 @@
 class_name AdRequest
 const PluginVersion := preload("res://addons/admob/internal/version/plugin_version.gd")
 
-var keywords: Array[String]
+var keywords: Array
 var mediation_extras: Array[MediationExtras]
 var extras: Dictionary
 
