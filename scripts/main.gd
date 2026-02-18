@@ -56,6 +56,7 @@ var stats: Dictionary = {
 
 var ball_scene: PackedScene
 var ad_manager: Node = null
+var _continue_used: bool = false  # 광고 이어하기 1회 제한
 
 # UI 버튼들
 var _buttons: Dictionary = {}
@@ -271,7 +272,12 @@ func _create_game_over_buttons():
 	var cx = screen_w / 2.0
 	var bw = 220.0
 	var bh = 54.0
-	var by = screen_h * 0.58
+	var by = screen_h * 0.52
+	
+	# 광고 보고 이어하기 (1회 제한, 리워드 광고 준비된 경우만)
+	if not _continue_used and ad_manager and ad_manager.is_rewarded_ready():
+		_buttons["continue_ad"] = _make_button("🎬 광고 보고 이어하기", Vector2(cx - bw/2, by), Vector2(bw, bh), _on_continue_ad_pressed, 20)
+		by += 70
 	
 	_buttons["restart_go"] = _make_button("🔄 다시하기", Vector2(cx - bw/2, by), Vector2(bw, bh), _on_restart_pressed, 24)
 	_buttons["home_go"] = _make_button("🏠 메인으로", Vector2(cx - bw/2, by + 70), Vector2(bw, bh), _on_home_pressed, 24)
@@ -309,6 +315,24 @@ func _on_home_pressed():
 	game_over = false
 	game_over_timer = 0.0
 	_set_state(State.TITLE)
+
+func _on_continue_ad_pressed():
+	if ad_manager:
+		ad_manager.show_rewarded(_on_rewarded_continue)
+
+func _on_rewarded_continue():
+	_continue_used = true
+	game_over = false
+	game_over_timer = 0.0
+	# 위험선 위 공들 아래로 밀어주기
+	for child in get_children():
+		if child is RigidBody2D and child.global_position.y < C_TOP:
+			child.apply_central_impulse(Vector2(0, 300))
+	can_drop = true
+	drop_timer = 0.0
+	inflate_amount = 0.0
+	last_tick = -1
+	_set_state(State.PLAYING)
 
 func _on_back_pressed():
 	_set_state(State.TITLE)
@@ -516,6 +540,7 @@ func _game_over():
 func _restart():
 	score = 0
 	game_over = false
+	_continue_used = false
 	game_over_timer = 0.0
 	combo_count = 0
 	combo_timer = 0.0
