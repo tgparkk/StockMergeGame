@@ -50,7 +50,7 @@ func _request_consent():
 	params.tag_for_under_age_of_consent = false
 	if is_test:
 		var debug = ConsentDebugSettings.new()
-		debug.debug_geography = ConsentDebugSettings.DebugGeography.DEBUG_GEOGRAPHY_EEA
+		debug.debug_geography = DebugGeography.Values.EEA
 		params.consent_debug_settings = debug
 	
 	UserMessagingPlatform.consent_information.request(params, _on_consent_info_updated, _on_consent_info_failed)
