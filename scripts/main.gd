@@ -141,7 +141,6 @@ func _create_ball_scene() -> PackedScene:
 	body.name = "Ball"
 	body.set_script(load("res://scripts/ball.gd"))
 	body.gravity_scale = 1.0
-	body.can_sleep = false
 	body.contact_monitor = true
 	body.max_contacts_reported = 8
 	
