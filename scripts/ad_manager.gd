@@ -45,7 +45,7 @@ func _ready():
 	_request_consent()
 
 func _request_consent():
-	# GDPR/UMP 동의 플로우 (Poing v4.x)
+	# GDPR/UMP 동의 플로우 (Poing v4.x API)
 	var params = ConsentRequestParameters.new()
 	params.tag_for_under_age_of_consent = false
 	if is_test:
@@ -53,16 +53,20 @@ func _request_consent():
 		debug.debug_geography = DebugGeography.Values.EEA
 		params.consent_debug_settings = debug
 	
-	UserMessagingPlatform.consent_information.request(params, _on_consent_info_updated, _on_consent_info_failed)
+	UserMessagingPlatform.consent_information.update(params, _on_consent_info_updated, _on_consent_info_failed)
 
 func _on_consent_info_updated():
-	if UserMessagingPlatform.consent_information.is_consent_form_available():
-		UserMessagingPlatform.load_and_show_consent_form_if_required(_on_consent_dismissed, _on_consent_form_failed)
+	if UserMessagingPlatform.consent_information.get_is_consent_form_available():
+		UserMessagingPlatform.load_consent_form(_on_consent_form_loaded, _on_consent_form_failed)
 	else:
 		_init_ads()
 
-func _on_consent_dismissed():
-	_init_ads()
+func _on_consent_form_loaded(consent_form: ConsentForm):
+	consent_form.show(func(error):
+		if error:
+			print("[AdMob] Consent form dismissed with error: ", error.message)
+		_init_ads()
+	)
 
 func _on_consent_info_failed(error):
 	print("[AdMob] Consent info failed: ", error.message if error else "unknown")
