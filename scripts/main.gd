@@ -70,7 +70,7 @@ func _ready():
 	C_LEFT = 15.0
 	C_RIGHT = screen_w - 15.0
 	C_TOP = max(130.0, screen_h * 0.14)  # 상단 UI 영역 확보
-	C_BOTTOM = screen_h - max(40.0, screen_h * 0.04)  # 하단 여유
+	C_BOTTOM = screen_h - max(90.0, screen_h * 0.10)  # 하단: 배너 광고(~50dp) + 여유
 	DROP_Y = max(70.0, C_TOP - 50.0)
 	pendulum_x = screen_w / 2.0
 	
@@ -123,7 +123,7 @@ func _create_ball_scene() -> PackedScene:
 	body.set_script(load("res://scripts/ball.gd"))
 	body.gravity_scale = 1.0
 	body.contact_monitor = true
-	body.max_contacts_reported = 4
+	body.max_contacts_reported = 8
 	
 	var collision = CollisionShape2D.new()
 	collision.name = "CollisionShape2D"
@@ -297,6 +297,18 @@ func _on_back_pressed():
 
 # ── 입력 ──
 
+func _notification(what):
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		match state:
+			State.PLAYING:
+				_set_state(State.PAUSED)
+			State.PAUSED:
+				_set_state(State.PLAYING)
+			State.TITLE, State.RECORDS:
+				get_tree().quit()
+			State.GAME_OVER:
+				_set_state(State.TITLE)
+
 func _input(event):
 	if state != State.PLAYING:
 		return
@@ -456,7 +468,7 @@ func _process(delta):
 	var any_above = false
 	for child in get_children():
 		if child is RigidBody2D and not child.merging:
-			if child.position.y < C_TOP and abs(child.linear_velocity.y) < 50:
+			if child.global_position.y < C_TOP and abs(child.linear_velocity.y) < 50:
 				any_above = true
 				break
 	
