@@ -22,12 +22,15 @@ func init(stock_level: int, size_mult: float = 1.0):
 	physics_material_override.friction = 0.9
 	
 	spawn_scale = 0.3
+	freeze = true  # 스폰 애니메이션 동안 물리 정지
 	queue_redraw()
 
 func _process(delta):
 	if spawn_scale < 1.0:
 		spawn_scale = min(spawn_scale + delta * 6.0, 1.0)
 		scale = Vector2(spawn_scale, spawn_scale)
+		if spawn_scale >= 1.0:
+			freeze = false  # 애니메이션 완료 → 물리 시작
 
 func _draw():
 	var data = StockData.get_level(level)
