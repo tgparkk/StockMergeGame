@@ -36,6 +36,10 @@ var C_TOP: float = 130.0
 var C_BOTTOM: float = 920.0
 var DROP_Y: float = 80.0
 var WALL_THICKNESS: float = 4.0
+var safe_top: float = 0.0
+var safe_bottom: float = 0.0
+var safe_left: float = 0.0
+var safe_right: float = 0.0
 
 # 통계
 var stats: Dictionary = {
@@ -67,10 +71,13 @@ func _ready():
 	screen_w = vp.x
 	screen_h = vp.y
 	
-	C_LEFT = 15.0
-	C_RIGHT = screen_w - 15.0
-	C_TOP = max(130.0, screen_h * 0.14)  # 상단 UI 영역 확보
-	C_BOTTOM = screen_h - max(90.0, screen_h * 0.10)  # 하단: 배너 광고(~50dp) + 여유
+	# Safe Area 대응 (노치/펀치홀/다이내믹 아일랜드)
+	_update_safe_area()
+	
+	C_LEFT = max(15.0, safe_left + 5.0)
+	C_RIGHT = screen_w - max(15.0, safe_right + 5.0)
+	C_TOP = max(130.0, screen_h * 0.14, safe_top + 80.0)
+	C_BOTTOM = screen_h - max(90.0, screen_h * 0.10, safe_bottom + 50.0)
 	DROP_Y = max(70.0, C_TOP - 50.0)
 	pendulum_x = screen_w / 2.0
 	
@@ -84,6 +91,16 @@ func _ready():
 	_update_ui()
 	_layout_ui()
 	_set_state(State.TITLE)
+
+func _update_safe_area():
+	if OS.get_name() == "Android" or OS.get_name() == "iOS":
+		var vp_rect = get_viewport_rect()
+		var safe_rect = DisplayServer.get_display_safe_area()
+		safe_top = max(0.0, safe_rect.position.y - vp_rect.position.y)
+		safe_bottom = max(0.0, (vp_rect.position.y + vp_rect.size.y) - (safe_rect.position.y + safe_rect.size.y))
+		safe_left = max(0.0, safe_rect.position.x - vp_rect.position.x)
+		safe_right = max(0.0, (vp_rect.position.x + vp_rect.size.x) - (safe_rect.position.x + safe_rect.size.x))
+		print("[SafeArea] top=", safe_top, " bottom=", safe_bottom, " left=", safe_left, " right=", safe_right)
 
 func _setup_walls():
 	var floor_col = $Walls/Floor
@@ -107,12 +124,13 @@ func _setup_walls():
 	right_col.position = Vector2(C_RIGHT + WALL_THICKNESS / 2, C_TOP - 30 + wall_h / 2)
 
 func _layout_ui():
-	score_label.position = Vector2(C_LEFT, 8)
+	var ui_top = max(8.0, safe_top + 4.0)
+	score_label.position = Vector2(C_LEFT, ui_top)
 	score_label.size = Vector2(screen_w * 0.5, 40)
-	best_label.position = Vector2(C_LEFT, 38)
+	best_label.position = Vector2(C_LEFT, ui_top + 30)
 	best_label.size = Vector2(screen_w * 0.4, 30)
 	# 다음 프리뷰: 우상단, 게임영역 밖 (점수 옆)
-	next_preview.position = Vector2(screen_w - 60, 50)
+	next_preview.position = Vector2(C_RIGHT - 45, ui_top + 42)
 	drop_guide.width = 1.5
 	drop_guide.default_color = Color(1, 1, 1, 0.2)
 
