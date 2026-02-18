@@ -69,9 +69,9 @@ func _ready():
 	
 	C_LEFT = 15.0
 	C_RIGHT = screen_w - 15.0
-	C_TOP = 120.0
-	C_BOTTOM = screen_h - 90.0
-	DROP_Y = 70.0
+	C_TOP = max(130.0, screen_h * 0.14)  # 상단 UI 영역 확보
+	C_BOTTOM = screen_h - max(40.0, screen_h * 0.04)  # 하단 여유
+	DROP_Y = max(70.0, C_TOP - 50.0)
 	pendulum_x = screen_w / 2.0
 	
 	_setup_walls()
@@ -108,10 +108,11 @@ func _setup_walls():
 
 func _layout_ui():
 	score_label.position = Vector2(C_LEFT, 8)
-	score_label.size = Vector2(300, 40)
+	score_label.size = Vector2(screen_w * 0.5, 40)
 	best_label.position = Vector2(C_LEFT, 38)
-	best_label.size = Vector2(200, 30)
-	next_preview.position = Vector2(C_RIGHT - 40, 50)
+	best_label.size = Vector2(screen_w * 0.4, 30)
+	# 다음 프리뷰: 우상단, 게임영역 밖 (점수 옆)
+	next_preview.position = Vector2(screen_w - 60, 50)
 	drop_guide.width = 1.5
 	drop_guide.default_color = Color(1, 1, 1, 0.2)
 
@@ -235,7 +236,7 @@ func _create_title_buttons():
 	_buttons["records"] = _make_button("📊 기록", Vector2(cx - bw/2, by + 75), Vector2(bw, bh), _on_records_pressed, 26)
 
 func _create_pause_button():
-	var btn = _make_button("⏸", Vector2(screen_w - 60, 5), Vector2(50, 50), _on_pause_pressed, 22)
+	var btn = _make_button("⏸", Vector2(screen_w - 55, 75), Vector2(45, 45), _on_pause_pressed, 20)
 	_buttons["pause"] = btn
 
 func _create_pause_menu_buttons():
