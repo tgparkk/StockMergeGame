@@ -27,11 +27,11 @@ func init(stock_level: int, size_mult: float = 1.0):
 func _process(delta):
 	if spawn_scale < 1.0:
 		spawn_scale = min(spawn_scale + delta * 6.0, 1.0)
-		queue_redraw()  # 시각적 스케일만 _draw()에서 처리 (RigidBody2D scale 변경 금지)
+		scale = Vector2(spawn_scale, spawn_scale)
 
 func _draw():
 	var data = StockData.get_level(level)
-	var r = data.radius * size_multiplier * spawn_scale
+	var r = data.radius * size_multiplier
 	var col = data.color
 	var hi = data.highlight
 	
