@@ -347,7 +347,7 @@ func _drop_ball(x: float):
 	SFX.play_drop(get_tree())
 	
 	ball_count += 1
-	pendulum_speed = 200.0 + min(ball_count / 10.0, 15.0) * 20.0
+	pendulum_speed = min(200.0 + min(ball_count / 10.0, 15.0) * 15.0, 380.0)
 	drop_timer = 0.0
 	inflate_amount = 0.0
 	last_tick = -1
