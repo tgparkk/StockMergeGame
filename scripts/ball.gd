@@ -11,7 +11,6 @@ func init(stock_level: int, size_mult: float = 1.0):
 	size_multiplier = size_mult
 	var data = StockData.get_level(level)
 	
-	# 콜리전 셰이프는 최종 크기로 즉시 설정 (RigidBody2D scale 변경 금지)
 	var shape = CircleShape2D.new()
 	shape.radius = data.radius * size_multiplier
 	var col = get_node("CollisionShape2D")
@@ -22,17 +21,17 @@ func init(stock_level: int, size_mult: float = 1.0):
 	physics_material_override.bounce = 0.15
 	physics_material_override.friction = 0.9
 	
-	spawn_scale = 0.3  # 시각적 스케일만 (콜리전은 풀사이즈)
+	spawn_scale = 0.3
 	queue_redraw()
 
 func _process(delta):
 	if spawn_scale < 1.0:
 		spawn_scale = min(spawn_scale + delta * 6.0, 1.0)
-		queue_redraw()  # scale은 _draw에서만 시각적으로 적용 (RigidBody2D.scale 변경 금지)
+		scale = Vector2(spawn_scale, spawn_scale)
 
 func _draw():
 	var data = StockData.get_level(level)
-	var r = data.radius * size_multiplier * spawn_scale
+	var r = data.radius * size_multiplier
 	var col = data.color
 	var hi = data.highlight
 	
