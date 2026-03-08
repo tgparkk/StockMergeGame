@@ -5,6 +5,7 @@ export_presets.cfg
 
 # Sensitive
 release.keystore
+release_new.keystore
 new-game-project/ad_config.cfg
 
 # Build artifacts
