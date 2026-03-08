@@ -1,0 +1,24 @@
+# Godot 4+ specific ignores
+.godot/
+
+# Android 빌드 산출물
+/android/
+
+# 빌드 결과물
+*.apk
+*.aab
+*.keystore
+*.jks
+
+# 광고 설정 (실제 광고 ID 포함)
+ad_config.cfg
+
+# OS/IDE 생성 파일
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# 로그 파일
+*.log

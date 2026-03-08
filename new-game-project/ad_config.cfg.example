@@ -1,0 +1,16 @@
+[ad_ids]
+
+# 실제 광고 ID (프로덕션) — 본인의 AdMob ID로 교체하세요
+banner_id=""
+interstitial_id=""
+rewarded_id=""
+
+# 테스트 광고 ID (개발 중 사용)
+test_banner_id="ca-app-pub-3940256099942544/6300978111"
+test_interstitial_id="ca-app-pub-3940256099942544/1033173712"
+test_rewarded_id="ca-app-pub-3940256099942544/5224354917"
+
+[ad_settings]
+
+# 전면 광고 표시 주기 (게임오버 횟수)
+interstitial_interval=3

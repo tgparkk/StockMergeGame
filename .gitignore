@@ -1,0 +1,28 @@
+# Godot
+.godot/
+*.import
+export_presets.cfg
+
+# Sensitive
+release.keystore
+new-game-project/ad_config.cfg
+
+# Build artifacts
+*.apk
+*.aab
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+*.swp
+*.swo
+
+# Team workspace (session-specific)
+.team/
+
+# Claude
+.claude/
